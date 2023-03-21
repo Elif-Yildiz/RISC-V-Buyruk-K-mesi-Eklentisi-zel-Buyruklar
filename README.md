@@ -1,6 +1,7 @@
 # RISC-V-Buyruk-Kumesi-Eklentisi-Ozel-Buyruklar
 
-Farklı değerler denemek için  tb_yildiz dosyasını güncelleyin.
+Verilog-srcs dosyaları bulunmaktadır.
+Farklı değerler denemek için tb_yildiz dosyasını güncelleyin.
 
 Buyruk Buyruğun İşlevi ve Formatı
 KAREAL.TOPLA rs1 ve rs2 yazmaçlarındaki değerlerin karelerinin toplamını rd yazmacına yazar.
