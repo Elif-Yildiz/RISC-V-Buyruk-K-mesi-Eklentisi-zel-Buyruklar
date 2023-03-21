@@ -1,0 +1,118 @@
+`timescale 1ns / 1ps
+
+module yildiz(
+
+    input saat, reset,
+    input [31:0] buyruk,
+    output reg [31:0] program_sayaci,
+    output [1023:0] yazmaclar
+
+    );
+    
+    reg [31:0] yazmaclar_r [31:0];
+    genvar j;
+    generate 
+        for (j = 0; j < 32; j = j + 1) begin
+            assign yazmaclar[j*32 +: 32] = yazmaclar_r[j];
+        end
+    endgenerate
+
+
+    reg [31:0] gercek_buyruk = 0;
+    reg [31:0] immmidiate = 0;
+    reg [5:0] bitsay = 0;
+    reg [5:0] i = 0;
+    initial program_sayaci = 32'b0;
+    initial begin
+        for (i = 0; i < 32 ; i = i + 1) begin
+            yazmaclar_r[i] = 0;
+        end
+    end
+
+    always @(posedge saat) begin
+        if (reset == 1'b1) begin
+            program_sayaci = 0;
+            for (i = 0; i < 32 ; i = i + 1) begin
+                yazmaclar_r[i] = 0;
+            end
+            immmidiate = 0;
+            gercek_buyruk = 0;
+            bitsay = 0;
+            i = 0;
+        end
+        else begin
+            gercek_buyruk = {buyruk[7:0], buyruk[15:8], buyruk[23:16], buyruk[31:24]};
+            program_sayaci = program_sayaci + 4;
+
+            if (gercek_buyruk[6:0] == 7'b1110111) begin
+                //KAREAL_TOPLA
+                if (gercek_buyruk[14:12] == 3'b000 && gercek_buyruk[31:25] == 7'b0000000) begin
+                    yazmaclar_r[gercek_buyruk[11:7]] = yazmaclar_r[gercek_buyruk[19:15]] * yazmaclar_r[gercek_buyruk[19:15]] + yazmaclar_r[gercek_buyruk[24:20]] * yazmaclar_r[gercek_buyruk[24:20]];
+                end
+                
+                //CARP_CIKAR
+                else if (gercek_buyruk[14:12] == 3'b001 && gercek_buyruk[31:25] == 7'b1000010) begin
+                    yazmaclar_r[gercek_buyruk[11:7]] = yazmaclar_r[gercek_buyruk[19:15]] * yazmaclar_r[gercek_buyruk[24:20]] - yazmaclar_r[gercek_buyruk[19:15]];
+                end
+                
+                //SIFRELE
+                else if (gercek_buyruk[14:12] == 3'b100) begin
+                    if (gercek_buyruk[31] == 1'b0)
+                        immmidiate = {20'b00000000000000000000, gercek_buyruk[31:20]};
+                    else
+                        immmidiate = {20'b11111111111111111111, gercek_buyruk[31:20]};
+                    yazmaclar_r[gercek_buyruk[11:7]] = yazmaclar_r[gercek_buyruk[19:15]] ^ immmidiate;
+                end
+                
+                //TASI
+                else if (gercek_buyruk[14:12] == 3'b101) begin
+                    immmidiate = {20'b00000000000000000000, gercek_buyruk[31:20]};
+                    yazmaclar_r[gercek_buyruk[11:7]] = yazmaclar_r[gercek_buyruk[19:15]] + immmidiate;
+                end
+                
+                //BITSAY
+                else if (gercek_buyruk[14:12] == 3'b010 && gercek_buyruk[30:20] == 11'b10101010101) begin
+                    for (i = 0; i < 32; i = i+1) begin
+                        if (yazmaclar_r[gercek_buyruk[19:15]][i] == gercek_buyruk[31])
+                            bitsay = bitsay + 1;
+                    end
+                    yazmaclar_r[gercek_buyruk[11:7]] = bitsay;
+                    bitsay = 0;
+                end
+                
+            end
+
+            else if (gercek_buyruk[6:0] == 7'b1111111) begin
+                //SEC_DALLAN
+                if (gercek_buyruk[14:12] == 3'b111) begin
+                    if (gercek_buyruk[7] == 1'b0)
+                        immmidiate = {21'b000000000000000000000, gercek_buyruk[7], gercek_buyruk[29:25], gercek_buyruk[11:8], 1'b0};
+                    else
+                        immmidiate = {21'b111111111111111111111, gercek_buyruk[7], gercek_buyruk[29:25], gercek_buyruk[11:8], 1'b0};
+
+                    //beq
+                    if (gercek_buyruk[31:30] == 2'b01 && yazmaclar_r[gercek_buyruk[19:15]] == yazmaclar_r[gercek_buyruk[24:20]])
+                        program_sayaci = immmidiate;
+                    //blt
+                    else if (gercek_buyruk[31:30] == 2'b10 && yazmaclar_r[gercek_buyruk[19:15]] < yazmaclar_r[gercek_buyruk[24:20]])
+                        program_sayaci = immmidiate;
+                    //bge
+                    else if (gercek_buyruk[31:30] == 2'b11 && yazmaclar_r[gercek_buyruk[19:15]] >= yazmaclar_r[gercek_buyruk[24:20]])
+                        program_sayaci = immmidiate;
+                end
+
+                //IKIKAT_ATLA
+                else begin
+                    yazmaclar_r[gercek_buyruk[11:7]] = program_sayaci;
+
+                    if (gercek_buyruk[31] == 1'b0)
+                        immmidiate = {11'b00000000000 ,gercek_buyruk[31], gercek_buyruk[19:12], gercek_buyruk[20], gercek_buyruk[30:21], 1'b0};
+                    else
+                        immmidiate = {11'b11111111111 ,gercek_buyruk[31], gercek_buyruk[19:12], gercek_buyruk[20], gercek_buyruk[30:21], 1'b0};
+                        
+                    program_sayaci = immmidiate << 1;
+                end
+            end
+        end
+    end
+endmodule
